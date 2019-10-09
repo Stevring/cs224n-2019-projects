@@ -95,7 +95,6 @@ def question_1d_sanity_check(model, src_sents, tgt_sents, vocab):
     reinitialize_layers(model)
     source_lengths = [len(s) for s in src_sents]
     source_padded = model.vocab.src.to_input_tensor(src_sents, device=model.device)
-
     # Load Outputs
     enc_hiddens_target = torch.load('./sanity_check_en_es_data/enc_hiddens.pkl')
     dec_init_state_target = torch.load('./sanity_check_en_es_data/dec_init_state.pkl')
@@ -194,7 +193,7 @@ def main():
 
     # Check Python & PyTorch Versions
     assert (sys.version_info >= (3, 5)), "Please update your installation of Python to version >= 3.5"
-    assert(torch.__version__ == "1.0.0"), "Please update your installation of PyTorch. You have {} and you should have version 1.0.0".format(torch.__version__)
+    assert(torch.__version__ == "1.2.0"), "Please update your installation of PyTorch. You have {} and you should have version 1.0.0".format(torch.__version__)
 
     # Seed the Random Number Generators
     seed = 1234

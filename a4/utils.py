@@ -29,10 +29,10 @@ def pad_sents(sents, pad_token):
     sents_padded = []
 
     ### YOUR CODE HERE (~6 Lines)
-    sents_len = map(lambda x: len(x), sents)
+    sents_len = list(map(lambda x: len(x), sents))
     max_len = max(sents_len)
-    for sent_len, sent in zip(sents_len, sents):
-        sents_padded = sents + [pad_token] * (max_len - sent_len)
+    for sent_len, sent in zip(list(sents_len), sents):
+        sents_padded.append(sent + [pad_token] * (max_len - sent_len))
     ### END YOUR CODE
 
     return sents_padded
