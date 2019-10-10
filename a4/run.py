@@ -64,7 +64,7 @@ def evaluate_ppl(model, dev_data, batch_size=32):
     @param model (NMT): NMT Model
     @param dev_data (list of (src_sent, tgt_sent)): list of tuples containing source and target sentence
     @param batch_size (batch size)
-    @returns ppl (perplixty on dev sentences)
+    @returns ppl: perplixty on dev sentences
     """
     was_training = model.training
     model.eval()
@@ -311,7 +311,8 @@ def beam_search(model: NMT, test_data_src: List[List[str]], beam_size: int, max_
 
             hypotheses.append(example_hyps)
 
-    if was_training: model.train(was_training)
+    if was_training:
+        model.train(was_training)
 
     return hypotheses
 
