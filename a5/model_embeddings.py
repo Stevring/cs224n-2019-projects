@@ -11,14 +11,15 @@ Michael Hahn <mhahn2@stanford.edu>
 """
 
 import torch.nn as nn
+import torch
 
 # Do not change these imports; your module names should be
 #   `CNN` in the file `cnn.py`
 #   `Highway` in the file `highway.py`
 # Uncomment the following two imports once you're ready to run part 1(j)
 
-# from cnn import CNN
-# from highway import Highway
+from cnn import CNN
+from highway import Highway
 
 # End "do not change" 
 
@@ -40,11 +41,15 @@ class ModelEmbeddings(nn.Module):
         ## End A4 code
 
         ### YOUR CODE HERE for part 1j
-
-
+        pad_token_idx = vocab['<pad>']
+        char_embed_size = 50
+        self.embeddings = nn.Embedding(len(vocab), char_embed_size, padding_idx=pad_token_idx)
+        self.cnn = CNN(21, char_embed_size, embed_size, 5)
+        self.highway = Highway(embed_size, embed_size)
+        self.embed_size = embed_size
         ### END YOUR CODE
 
-    def forward(self, input):
+    def forward(self, input:torch.Tensor):
         """
         Looks up character-based CNN embeddings for the words in a batch of sentences.
         @param input: Tensor of integers of shape (sentence_length, batch_size, max_word_length) where
@@ -59,7 +64,13 @@ class ModelEmbeddings(nn.Module):
         ## End A4 code
 
         ### YOUR CODE HERE for part 1j
-
-
+        word_embeddings = []
+        for word_batch in torch.unbind(input, 0):
+            word_batch_embedding = torch.transpose(self.embeddings(word_batch), 1, 2) # (batch_size, char_embed_size, max_word_length)
+            word_batch_conved = self.cnn(word_batch_embedding) # (batch_size, embed_size)
+            word_batch_highway = self.highway(word_batch_conved) # (batch_size, embed_size)
+            word_embeddings.append(word_batch_highway)
+        word_embeddings_tensor = torch.stack(word_embeddings) # (sequence_length, batch_size, embed_size)
+        return word_embeddings_tensor
         ### END YOUR CODE
 

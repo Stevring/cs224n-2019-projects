@@ -8,6 +8,8 @@ Usage:
     sanity_check.py 1e
     sanity_check.py 1f
     sanity_check.py 1j
+    sanity_check.py 1h
+    sanity_check.py 1i
     sanity_check.py 2a
     sanity_check.py 2b
     sanity_check.py 2c
@@ -29,6 +31,8 @@ from vocab import Vocab, VocabEntry
 
 from char_decoder import CharDecoder
 from nmt_model import NMT
+from highway import Highway
+from cnn import CNN
 
 
 import torch
@@ -95,6 +99,35 @@ def question_1f_sanity_check():
     print("Sanity Check Passed for Question 1f: Padding!")
     print("-"*80)
 
+def question_1h_sanity_check():
+    """ Sanity check for Highway network
+    """
+    print("-" * 80)
+    print("Running Sanity Check for Question 1h: Highway network")
+    print("-" * 80)
+
+    net = Highway(5, 5)
+    input = torch.randn((10, 6, 5))
+    normal_output = net.forward(input)
+    assert normal_output.shape == input.shape
+
+    print("-" * 80)
+    print("Sanity Check Passed for Question 1h: Highway network")
+
+def question_1i_sanity_check():
+    """ Sanity check for word Convolution layer
+    """
+    input = torch.randn((10, 50, 20)) #(B, word_num, char_embed, char_num)
+    kernel_size = 5
+    cnn = CNN(20, 50, 300, kernel_size)
+
+    conved = cnn.conv(input)
+    assert conved.shape == (10, 300, 16)
+
+    pooled = torch.squeeze(cnn.pooling(conved))
+    assert pooled.shape == (10, 300)
+    print("-" * 80)
+    print("Sanity Check Passed for Question 1i: CNN")
 
 def question_1j_sanity_check(model):
 	""" Sanity check for model_embeddings.py 
@@ -184,8 +217,6 @@ def main():
 
     # Check Python & PyTorch Versions
     assert (sys.version_info >= (3, 5)), "Please update your installation of Python to version >= 3.5"
-    assert(torch.__version__ == "1.0.0"), "Please update your installation of PyTorch. You have {} and you should have version 1.0.0".format(torch.__version__)
-
     # Seed the Random Number Generators
     seed = 1234
     torch.manual_seed(seed)
@@ -213,6 +244,10 @@ def main():
         question_1e_sanity_check()
     elif args['1f']:
         question_1f_sanity_check()
+    elif args['1h']:
+        question_1h_sanity_check()
+    elif args['1i']:
+        question_1i_sanity_check()
     elif args['1j']:
         question_1j_sanity_check(model)
     elif args['2a']:
