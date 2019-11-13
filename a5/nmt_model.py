@@ -98,7 +98,7 @@ class NMT(nn.Module):
         ###     - Modify calls to encode() and decode() to use the character level encodings
         source_padded_chars = self.vocab.src.to_input_tensor_char(source, device=self.device)
         target_padded = self.vocab.tgt.to_input_tensor(target, device=self.device) # (tgt_len, b)
-        target_padded_chars = self.vocab.tgt.to_input_tensor_char(target, device=self.device)
+        target_padded_chars = self.vocab.tgt.to_input_tensor_char(target, device=self.device) # (tgt_len, b, word_max_len)
         enc_hiddens, dec_init_state = self.encode(source_padded_chars, source_lengths) # enc_hiddens: (b,seq_len, embed_size)
         enc_masks = self.generate_sent_masks(enc_hiddens, source_lengths) # (b, seq_len)
         combined_outputs = self.decode(enc_hiddens, enc_masks, dec_init_state, target_padded_chars) # (tgt_len, b, h)
@@ -118,9 +118,9 @@ class NMT(nn.Module):
         if self.charDecoder is not None:
             max_word_len = target_padded_chars.shape[-1]
 
-            target_words = target_padded[1:].contiguous().view(-1)
-            target_chars = target_padded_chars[1:].view(-1, max_word_len)
-            target_outputs = combined_outputs.view(-1, 256)
+            target_words = target_padded[1:].contiguous().view(-1) # (tgt_len * b)
+            target_chars = target_padded_chars[1:].contiguous().view(-1, max_word_len) # (tgt_len * b, max_word_len)
+            target_outputs = combined_outputs.view(-1, 256) # (tgt_len * b, h)
 
             target_chars_oov = target_chars #torch.index_select(target_chars, dim=0, index=oovIndices)
             rnn_states_oov = target_outputs #torch.index_select(target_outputs, dim=0, index=oovIndices)

@@ -7,9 +7,10 @@ CS224N 2018-19: Homework 5
 
 import torch
 import torch.nn as nn
+from vocab import VocabEntry
 
 class CharDecoder(nn.Module):
-    def __init__(self, hidden_size, char_embedding_size=50, target_vocab=None):
+    def __init__(self, hidden_size, char_embedding_size=50, target_vocab:VocabEntry=None):
         """ Init Character Decoder.
 
         @param hidden_size (int): Hidden size of the decoder LSTM
@@ -27,13 +28,21 @@ class CharDecoder(nn.Module):
         ### Hint: - Use target_vocab.char2id to access the character vocabulary for the target language.
         ###       - Set the padding_idx argument of the embedding matrix.
         ###       - Create a new Embedding layer. Do not reuse embeddings created in Part 1 of this assignment.
-        
+        super(CharDecoder, self).__init__()
+        self.vocab_size = len(target_vocab.char2id)
+        self.charDecoder = nn.LSTM(char_embedding_size, hidden_size)
+        self.char_output_projection = nn.Linear(hidden_size, self.vocab_size)
+        self.decoderCharEmb = nn.Embedding(self.vocab_size, char_embedding_size, padding_idx=target_vocab.char2id['<pad>'])
+        self.target_vocab = target_vocab
+        cross_entropy_loss_weight = torch.ones(self.vocab_size)
+        cross_entropy_loss_weight[target_vocab.char2id['<pad>']] = 0 # padding token do not contribute to loss
+        self.cross_entropy_loss = nn.CrossEntropyLoss(weight=cross_entropy_loss_weight)
 
         ### END YOUR CODE
 
 
     
-    def forward(self, input, dec_hidden=None):
+    def forward(self, input:torch.Tensor, dec_hidden=None):
         """ Forward pass of character decoder.
 
         @param input: tensor of integers, shape (length, batch)
@@ -44,8 +53,10 @@ class CharDecoder(nn.Module):
         """
         ### YOUR CODE HERE for part 2b
         ### TODO - Implement the forward pass of the character decoder.
-        
-        
+        input_embed = self.decoderCharEmb(input) # (length, batch, char_embed_size)
+        enc_hidden, state_n = self.charDecoder(input_embed, dec_hidden) # enc_hidden: (length, batch, hidden)
+        scores = self.char_output_projection(enc_hidden) # (length, batch, vocab_size)
+        return scores, state_n
         ### END YOUR CODE 
 
 
@@ -62,8 +73,12 @@ class CharDecoder(nn.Module):
         ###
         ### Hint: - Make sure padding characters do not contribute to the cross-entropy loss.
         ###       - char_sequence corresponds to the sequence x_1 ... x_{n+1} from the handout (e.g., <START>,m,u,s,i,c,<END>).
-
-
+        char_sequence_input = char_sequence[:-1] # (length, batch) (<START>, m, u, s, i, c)
+        char_sequence_target = char_sequence[1:] # (length, batch) (m, u, s, i, c, <END>)
+        scores, state_n = self.forward(char_sequence_input, dec_hidden)
+        loss = self.cross_entropy_loss(scores.contiguous().view(-1, self.vocab_size),
+                                       char_sequence_target.contiguous().view(-1))
+        return loss
         ### END YOUR CODE
 
     def decode_greedy(self, initialStates, device, max_length=21):
@@ -83,7 +98,28 @@ class CharDecoder(nn.Module):
         ###      - Use torch.tensor(..., device=device) to turn a list of character indices into a tensor.
         ###      - We use curly brackets as start-of-word and end-of-word characters. That is, use the character '{' for <START> and '}' for <END>.
         ###        Their indices are self.target_vocab.start_of_word and self.target_vocab.end_of_word, respectively.
-        
-        
+        batch_size = initialStates[0].size(1)
+        output_word = [['{']] * batch_size
+        current_char_index = torch.tensor([self.target_vocab.char2id['{']] * batch_size, dtype=torch.long, device=device) # (b)
+        current_char_index = torch.unsqueeze(current_char_index, 0) # (1, b)
+        prev_state = initialStates
+        for i in range(max_length):
+            score_t, state_t = self.forward(current_char_index, prev_state) # score_t: (1, b, vocab_size)
+            current_char_index = torch.argmax(score_t, 2) # (1, b)
+            for batch_idx, word_idx in enumerate(current_char_index.squeeze().numpy().tolist()):
+                output_word[batch_idx].append(self.target_vocab.id2char[word_idx])
+            prev_state = state_t
+        truncated_output_word = []
+        for word in output_word:
+            try:
+                word_start_idx = word.index('{')
+            except:
+                word_start_idx = 0
+            try:
+                word_end_idx = word.index('}')
+            except:
+                word_end_idx = len(word)
+            truncated_output_word.append(''.join(word[word_start_idx+1:word_end_idx]))
+        return truncated_output_word
         ### END YOUR CODE
 

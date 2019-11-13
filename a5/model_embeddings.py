@@ -20,6 +20,7 @@ import torch
 
 from cnn import CNN
 from highway import Highway
+from vocab import VocabEntry
 
 # End "do not change" 
 
@@ -27,7 +28,7 @@ class ModelEmbeddings(nn.Module):
     """
     Class that converts input words to their CNN-based embeddings.
     """
-    def __init__(self, embed_size, vocab):
+    def __init__(self, embed_size, vocab:VocabEntry):
         """
         Init the Embedding layer for one language
         @param embed_size (int): Embedding size (dimensionality) for the output 
@@ -43,7 +44,7 @@ class ModelEmbeddings(nn.Module):
         ### YOUR CODE HERE for part 1j
         pad_token_idx = vocab['<pad>']
         char_embed_size = 50
-        self.embeddings = nn.Embedding(len(vocab), char_embed_size, padding_idx=pad_token_idx)
+        self.embeddings = nn.Embedding(len(vocab.char2id), char_embed_size, padding_idx=pad_token_idx)
         self.cnn = CNN(21, char_embed_size, embed_size, 5)
         self.highway = Highway(embed_size, embed_size)
         self.embed_size = embed_size
