@@ -14,7 +14,8 @@ Usage:
 
 Options:
     -h --help                               show this screen.
-    --cuda                                  use GPU
+    --QG                                    use QG model.
+    --cuda=<int>                            use GPU [default: -1]
     --train-src=<file>                      train source file
     --train-tgt=<file>                      train target file
     --dev-src=<file>                        dev source file
@@ -54,6 +55,7 @@ from typing import List, Tuple, Dict, Set, Union
 from tqdm import tqdm
 from utils import read_corpus, batch_iter
 from vocab import Vocab, VocabEntry
+from layers.model import QGModel
 
 import torch
 import torch.nn.utils
@@ -122,11 +124,19 @@ def train(args: Dict):
     model_save_path = args['--save-to']
 
     vocab = Vocab.load(args['--vocab'])
-
-    model = NMT(embed_size=int(args['--embed-size']),
-                hidden_size=int(args['--hidden-size']),
-                dropout_rate=float(args['--dropout']),
-                vocab=vocab)
+    if args['--QG']:
+        model = QGModel(vocab=vocab,
+                    embed_size=int(args['--embed-size']),
+                    hidden_size=int(args['--hidden-size']),
+                    enc_bidir=True,
+                    attn_size=512,
+                    dropout=float(args['--dropout']),
+                )
+    else:
+        model = NMT(embed_size=int(args['--embed-size']),
+                    hidden_size=int(args['--hidden-size']),
+                    dropout_rate=float(args['--dropout']),
+                    vocab=vocab)
     model.train()
 
     uniform_init = float(args['--uniform-init'])
@@ -138,7 +148,7 @@ def train(args: Dict):
     vocab_mask = torch.ones(len(vocab.tgt))
     vocab_mask[vocab.tgt['<pad>']] = 0
 
-    device = torch.device("cuda:0" if args['--cuda'] else "cpu")
+    device = torch.device("cuda:{}".format(args['--cuda']) if args['--cuda'] >= 0 else "cpu")
     print('use device: %s' % device, file=sys.stderr)
 
     model = model.to(device)
@@ -272,10 +282,14 @@ def decode(args: Dict[str, str]):
         test_data_tgt = read_corpus(args['TEST_TARGET_FILE'], source='tgt')
 
     print("load model from {}".format(args['MODEL_PATH']), file=sys.stderr)
-    model = NMT.load(args['MODEL_PATH'])
+    device = torch.device("cuda:{}".format(args['--cuda']) if args['--cuda'] >= 0 else "cpu")
+    print('use device: %s' % device, file=sys.stderr)
+    if args['--QG']:
+        model = QGModel.load(args['MODEL_PATH']+".qg", device)
+    else:
+        model = NMT.load(args['MODEL_PATH'])
 
-    if args['--cuda']:
-        model = model.to(torch.device("cuda:0"))
+    model.to(device)
 
     hypotheses = beam_search(model, test_data_src,
                              beam_size=int(args['--beam-size']),
@@ -293,7 +307,7 @@ def decode(args: Dict[str, str]):
             f.write(hyp_sent + '\n')
 
 
-def beam_search(model: NMT, test_data_src: List[List[str]], beam_size: int, max_decoding_time_step: int) -> List[List[Hypothesis]]:
+def beam_search(model, test_data_src: List[List[str]], beam_size: int, max_decoding_time_step: int) -> List[List[Hypothesis]]:
     """ Run beam search to construct hypotheses for a list of src-language sentences.
     @param model (NMT): NMT Model
     @param test_data_src (List[List[str]]): List of sentences (words) in source language, from test set.
@@ -328,7 +342,7 @@ def main():
     # seed the random number generators
     seed = int(args['--seed'])
     torch.manual_seed(seed)
-    if args['--cuda']:
+    if args['--cuda'] >= 0:
         torch.cuda.manual_seed(seed)
     np.random.seed(seed * 13 // 7)
 
