@@ -1,9 +1,9 @@
 #!/bin/bash
 
 if [ "$1" = "train" ]; then
-	CUDA_VISIBLE_DEVICES=0 python run.py train --cuda=0 --train-src=./en_es_data/train.es --train-tgt=./en_es_data/train.en --dev-src=./en_es_data/dev.es --dev-tgt=./en_es_data/dev.en --vocab=vocab.json
+	CUDA_VISIBLE_DEVICES=0 python run.py train --cuda=0 --train-src=./en_es_data/train.es --train-tgt=./en_es_data/train.en --dev-src=./en_es_data/dev.es --dev-tgt=./en_es_data/dev.en --vocab=vocab.json --QG
 elif [ "$1" = "test" ]; then
-        CUDA_VISIBLE_DEVICES=0 python run.py decode model.bin ./en_es_data/test.es ./en_es_data/test.en outputs/test_outputs.txt --cuda=0
+        CUDA_VISIBLE_DEVICES=0 python run.py decode model.bin ./en_es_data/test.es ./en_es_data/test.en outputs/test_outputs.txt --cuda=0 --QG
 elif [ "$1" = "train_local" ]; then
 	python run.py train --train-src=./en_es_data/train.es --train-tgt=./en_es_data/train.en --dev-src=./en_es_data/dev.es --dev-tgt=./en_es_data/dev.en --vocab=vocab.json
 elif [ "$1" = "test_local" ]; then

@@ -24,7 +24,7 @@ class QGModel(nn.Module):
         self.embeddings = ModelEmbeddings(embed_size, vocab)
         self.encoder = Encoder(embed_size, hidden_size, dropout, enc_bidir)
         self.decoder_init_hidden_proj = nn.Linear(self.encoder.hidden_size, hidden_size)
-        self.decoder = Decoder(embed_size, hidden_size, attn_size, len(vocab), dropout)
+        self.decoder = Decoder(embed_size, hidden_size, attn_size, len(vocab.tgt), dropout)
 
     def batch_to_tensor(self, source, target):
         # Compute sentence lengths
@@ -90,7 +90,7 @@ class QGModel(nn.Module):
             t += 1
             hyp_num = len(hypotheses)
             prev_word = [x[-1] for x in hypotheses]
-            tgt_tm1 = self.embeddings.target(torch.tensor(self.word_vocab.index(prev_word),
+            tgt_tm1 = self.embeddings.target(torch.tensor(self.vocab.tgt[prev_word],
                                    dtype=torch.long, device=self.device))  # (B, word_embed_size)
 
             memory_for_attn_tm1 = memory_for_attn.expand((hyp_num, *memory_for_attn.shape[1:]))
