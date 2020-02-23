@@ -342,6 +342,7 @@ def main():
     # seed the random number generators
     seed = int(args['--seed'])
     torch.manual_seed(seed)
+    args['--cuda'] = int(args['--cuda'])
     if args['--cuda'] >= 0:
         torch.cuda.manual_seed(seed)
     np.random.seed(seed * 13 // 7)
