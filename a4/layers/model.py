@@ -72,7 +72,6 @@ class QGModel(nn.Module):
         """
         src_sents_var = self.vocab.src.to_input_tensor([src_sent], self.device)
         src_len = torch.tensor([len(src_sent)], dtype=torch.int, device=self.device)
-        src_mask = self.generate_mask([len(src_sent)], len(src_sent))
         source_embedding = self.embeddings.source(src_sents_var)  # (src_len, b, embed_size)
 
         memory, last_hidden = self.encoder(source_embedding, src_len)
@@ -85,26 +84,20 @@ class QGModel(nn.Module):
         t = 0
         ctxt_tm1 = torch.zeros(len(hypotheses), self.args['hidden_size'], device=self.device)
         dec_hidden_tm1 = dec_init_hidden
-        memory_for_attn = self.decoder.memory_attn_proj(memory)
         while len(completed_hypotheses) < beam_size and t < max_decoding_time_step:
             t += 1
             hyp_num = len(hypotheses)
-            prev_word = [x[-1] for x in hypotheses]
-            tgt_tm1 = self.embeddings.target(torch.tensor(self.vocab.tgt[prev_word],
-                                   dtype=torch.long, device=self.device))  # (B, word_embed_size)
+            prev_word = torch.tensor([self.vocab.tgt[x[-1]] for x in hypotheses], dtype=torch.long, device=self.device)
+            tgt_tm1 = self.embeddings.target(prev_word)  # (B, word_embed_size)
 
-            memory_for_attn_tm1 = memory_for_attn.expand((hyp_num, *memory_for_attn.shape[1:]))
-            memory_mask_tm1 = src_mask.expand((hyp_num, -1))
             memory_tm1 = memory.expand((hyp_num, *memory.shape[1:]))
-            gen_t,  dec_hidden_t, ctxt_t = self.decoder.decode_step(tgt_tm1, ctxt_tm1, dec_hidden_tm1,
-                                     memory_for_attn_tm1, memory_tm1, memory_mask_tm1)
+            gen_t,  dec_hidden_t, ctxt_t = self.decoder.decode_step(tgt_tm1, ctxt_tm1, dec_hidden_tm1, memory_tm1)
             gen_t = torch.log_softmax(gen_t, dim=-1) # (B, vocab)
             live_hyp_num = beam_size - len(completed_hypotheses)
             continuating_hyp_scores = (hyp_scores.unsqueeze(1).expand_as(gen_t) + gen_t).view(-1)  # (hyp_num * V)
-            assert continuating_hyp_scores.shape[0] == hyp_num * len(self.word_vocab)
             top_candi_scores, top_candi_position = torch.topk(continuating_hyp_scores, k=live_hyp_num)
-            prev_hyp_indexes = top_candi_position / gen_t.shape[-1]
-            hyp_word_indexes = top_candi_position % gen_t.shape[-1]
+            prev_hyp_indexes = top_candi_position / len(self.vocab.tgt)
+            hyp_word_indexes = top_candi_position % len(self.vocab.tgt)
 
             new_hypothesis = []
             live_hyp_index = []
@@ -116,8 +109,6 @@ class QGModel(nn.Module):
                 new_hyp_score = new_hyp_score.item()
 
                 hyp_word = self.vocab.tgt.id2word[hyp_word_index]
-                if hyp_word == self.word_vocab.UNK:
-                    num_unk += 1
                 new_hypo = hypotheses[prev_hyp_index] + [hyp_word]
                 if hyp_word == '</s>':
                     completed_hypotheses.append(Hypothesis(value=new_hypo[1:-1],

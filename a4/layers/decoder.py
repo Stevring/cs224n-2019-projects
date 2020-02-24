@@ -27,9 +27,11 @@ class Decoder(nn.Module):
         :return:
         """
         query = self.gru_hidden_attn_proj(query).unsqueeze(1)  # (B, 1, attn_size)
+        key = self.memory_attn_proj(key)
         tmp = torch.add(key, query)  # (B, src_len, attn_size)
         e = self.engy_attn_proj(torch.tanh(tmp)).squeeze(2)  # (B, src_len)
-        e = e * (1 - mask) + mask * (-1000000)
+        if mask:
+            e = e * (1 - mask) + mask * (-1000000)
         score = torch.softmax(e, dim=1)  # (B, src_len)
         ctxt = torch.bmm(score.unsqueeze(1), value).squeeze(1)  # (B, 1, value_size)
         return ctxt, score
@@ -44,7 +46,6 @@ class Decoder(nn.Module):
         """
         B, src_len, _ = memory.size()
         tgt = tgt[:-1]
-        memory_for_attn = self.memory_attn_proj(memory)
         dec_hidden_tm1 = dec_init_hidden
         ctxt_tm1 = torch.zeros(B, self.hidden_size, device=memory.device)
         gen_probs = []
@@ -53,13 +54,12 @@ class Decoder(nn.Module):
             gen_prob_t, dec_hidden_tm1, ctxt_tm1 = self.decode_step(tgt_tm1,
                                                                     ctxt_tm1,
                                                                     dec_hidden_tm1,
-                                                                    memory_for_attn,
                                                                     memory,
                                                                     memory_mask)
             gen_probs.append(gen_prob_t)
         return torch.stack(gen_probs)  # (tgt_len, B, vocab_size)
 
-    def decode_step(self, tgt_tm1, ctxt_tm1, dec_hidden_tm1, memory_for_attn, memory, memory_mask):
+    def decode_step(self, tgt_tm1, ctxt_tm1, dec_hidden_tm1, memory, memory_mask=None):
         """
         :param tgt_tm1:
         :param ctxt_tm1:
@@ -71,7 +71,7 @@ class Decoder(nn.Module):
         """
         gru_input_tm1 = self.gru_input_proj(torch.cat([tgt_tm1, ctxt_tm1], dim=1))
         dec_hidden_t = self.gru_cell(gru_input_tm1, dec_hidden_tm1)
-        ctxt_t, attn_score_t = self.concat_attn(dec_hidden_t, memory_for_attn, memory, memory_mask)
+        ctxt_t, attn_score_t = self.concat_attn(dec_hidden_t, memory, memory, memory_mask)
         r_t = self.readout(torch.cat([tgt_tm1, ctxt_t, dec_hidden_t], dim=-1))
         m_t = self.readout_pooling(r_t.unsqueeze(1)).squeeze(1)  # (B, hidden // 2)
         m_t = self.dropout(m_t)
