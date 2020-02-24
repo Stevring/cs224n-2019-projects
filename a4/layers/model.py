@@ -126,11 +126,13 @@ class QGModel(nn.Module):
             hypotheses = new_hypothesis
             hyp_scores = torch.tensor(new_hyp_scores, dtype=torch.float, device=self.device)
 
+        has_comp = True
         if len(completed_hypotheses) == 0:
+            has_comp = False
             completed_hypotheses.append(Hypothesis(value=hypotheses[0][1:],
                                                    score=hyp_scores[0].item()))
         completed_hypotheses.sort(key=lambda x: x.score, reverse=True)
-        return completed_hypotheses
+        return completed_hypotheses, has_comp
 
 
 
